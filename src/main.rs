@@ -79,6 +79,9 @@ impl FromStr for Command {
             "exit" => Ok(Command::Exit(args)),
             "echo" => Ok(Command::Echo(args)),
             "type" => match Command::from_str(&args) {
+                Ok(Command::Local(_)) => Ok(Command::Type(Type::Local(
+                    pathenv.find(parts[1].into()).unwrap(),
+                ))),
                 Ok(c) => Ok(Command::Type(Type::Builtin(Box::new(c)))),
                 Err(_) => {
                     if let Some(p) = pathenv.find(args.split(' ').next().unwrap_or("")) {
@@ -89,7 +92,7 @@ impl FromStr for Command {
                 }
             },
             cmd => {
-                if let Some(p) = pathenv.find(&cmd) {
+                if let Some(p) = pathenv.find(cmd) {
                     let mut c = process::Command::new(p);
                     for arg in args.split(' ') {
                         c.arg(arg);
