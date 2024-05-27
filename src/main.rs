@@ -5,6 +5,7 @@ use std::str::FromStr;
 #[derive(Debug)]
 enum Command {
     Exit(String),
+    Echo(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -19,8 +20,9 @@ impl FromStr for Command {
             Some(s) => s.to_string(),
             None => String::new(),
         };
-        match parts.first().unwrap_or(&"") {
-            &"exit" => Ok(Command::Exit(args)),
+        match *parts.first().unwrap_or(&"") {
+            "exit" => Ok(Command::Exit(args)),
+            "echo" => Ok(Command::Echo(args)),
             _ => Err(CommandParsingError),
         }
     }
@@ -42,6 +44,7 @@ fn main() {
         if let Ok(c) = Command::from_str(&input) {
             match c {
                 Command::Exit(_a) => return,
+                Command::Echo(e) => println!("{}", &e),
             }
         } else {
             println!("{}: command not found", &input.trim())
