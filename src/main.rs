@@ -88,12 +88,10 @@ impl FromStr for Command {
                     }
                 }
             },
-            _ => {
-                if let Some(p) = pathenv.find(&s.trim()) {
+            cmd => {
+                if let Some(p) = pathenv.find(&cmd) {
                     let mut c = process::Command::new(p);
-                    let mut arg_iter = args.split(' ');
-                    let _ = arg_iter.next(); // cmd
-                    for arg in arg_iter {
+                    for arg in args.split(' ') {
                         c.arg(arg);
                     }
                     let out = std::str::from_utf8(&c.output().unwrap().stdout)
