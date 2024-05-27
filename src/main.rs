@@ -1,3 +1,5 @@
+use std::fmt;
+use std::fmt::Display;
 #[allow(unused_imports)]
 use std::io::{self, Write};
 use std::str::FromStr;
@@ -6,6 +8,13 @@ use std::str::FromStr;
 enum Command {
     Exit(String),
     Echo(String),
+    Type(Type),
+}
+
+#[derive(Debug)]
+enum Type {
+    Builtin(Box<Command>),
+    Unknown(String),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -23,7 +32,21 @@ impl FromStr for Command {
         match *parts.first().unwrap_or(&"") {
             "exit" => Ok(Command::Exit(args)),
             "echo" => Ok(Command::Echo(args)),
+            "type" => match Command::from_str(&args) {
+                Err(_) => Ok(Command::Type(Type::Unknown(args))),
+                Ok(c) => Ok(Command::Type(Type::Builtin(Box::new(c)))),
+            },
             _ => Err(CommandParsingError),
+        }
+    }
+}
+
+impl Display for Command {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Command::Exit(_) => write!(f, "exit"),
+            Command::Echo(_) => write!(f, "echo"),
+            Command::Type(_) => write!(f, "type"),
         }
     }
 }
@@ -45,6 +68,8 @@ fn main() {
             match c {
                 Command::Exit(_a) => return,
                 Command::Echo(e) => println!("{}", &e),
+                Command::Type(Type::Builtin(c)) => println!("{} is a shell builtin", c),
+                Command::Type(Type::Unknown(u)) => println!("{} not found", u),
             }
         } else {
             println!("{}: command not found", &input.trim())
