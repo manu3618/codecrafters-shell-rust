@@ -1,8 +1,45 @@
+use std::env;
+use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
-#[allow(unused_imports)]
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::str::FromStr;
+
+#[derive(Debug)]
+struct PathEnv(Vec<PathBuf>);
+
+#[derive(Debug)]
+struct PathEnvParsingError;
+
+impl FromStr for PathEnv {
+    type Err = PathEnvParsingError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut paths = Vec::new();
+        let parts = s.trim().split(':');
+        for part in parts {
+            paths.push(part.into());
+        }
+        Ok(Self(paths))
+    }
+}
+
+impl PathEnv {
+    /// Find first occurence of bin in path contained in Self
+    fn find(&self, bin: &str) -> Option<PathBuf> {
+        let bin = OsStr::new(bin);
+        for path in &self.0 {
+            let msg = format!("{} should exist", path.display());
+            for entry in path.read_dir().expect(&msg) {
+                let e = entry.unwrap().path().clone();
+                if e.file_name().unwrap() == bin {
+                    return Some(e);
+                }
+            }
+        }
+        None
+    }
+}
 
 #[derive(Debug)]
 enum Command {
@@ -14,6 +51,7 @@ enum Command {
 #[derive(Debug)]
 enum Type {
     Builtin(Box<Command>),
+    Local(PathBuf),
     Unknown(String),
 }
 
@@ -24,6 +62,8 @@ impl FromStr for Command {
     type Err = CommandParsingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let pathenv: PathEnv =
+            PathEnv::from_str(&env::var("PATH").unwrap()).expect("PATH should be set");
         let parts = s.trim().splitn(2, ' ').collect::<Vec<_>>();
         let args = match parts.get(1) {
             Some(s) => s.to_string(),
@@ -33,8 +73,14 @@ impl FromStr for Command {
             "exit" => Ok(Command::Exit(args)),
             "echo" => Ok(Command::Echo(args)),
             "type" => match Command::from_str(&args) {
-                Err(_) => Ok(Command::Type(Type::Unknown(args))),
                 Ok(c) => Ok(Command::Type(Type::Builtin(Box::new(c)))),
+                Err(_) => {
+                    if let Some(p) = pathenv.find(args.split(' ').next().unwrap_or("")) {
+                        Ok(Command::Type(Type::Local(p)))
+                    } else {
+                        Ok(Command::Type(Type::Unknown(args)))
+                    }
+                }
             },
             _ => Err(CommandParsingError),
         }
@@ -69,6 +115,13 @@ fn main() {
                 Command::Exit(_a) => return,
                 Command::Echo(e) => println!("{}", &e),
                 Command::Type(Type::Builtin(c)) => println!("{} is a shell builtin", c),
+                Command::Type(Type::Local(p)) => {
+                    println!(
+                        "{} is {}",
+                        p.file_name().unwrap().to_str().unwrap(),
+                        p.to_str().unwrap()
+                    )
+                }
                 Command::Type(Type::Unknown(u)) => println!("{} not found", u),
             }
         } else {
