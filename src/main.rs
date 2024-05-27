@@ -32,6 +32,6 @@ fn main() {
     stdin.read_line(&mut input).unwrap();
     if let Ok(_c) = Command::from_str(&input) {
     } else {
-        println!("{}: command not found", &input)
+        println!("{}: command not found", &input.trim())
     }
 }
