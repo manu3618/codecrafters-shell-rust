@@ -28,6 +28,9 @@ impl FromStr for PathEnv {
 impl PathEnv {
     /// Find first occurence of bin in path contained in Self
     fn find(&self, bin: &str) -> Option<PathBuf> {
+        if bin.starts_with('/') {
+            return Some(bin.into());
+        }
         let bin = OsStr::new(bin);
         for path in &self.0 {
             let msg = format!("{} should exist", path.display());
@@ -86,14 +89,16 @@ impl FromStr for Command {
                 }
             },
             _ => {
-                if let Some(p) = pathenv.find(args.split(' ').next().unwrap_or("")) {
+                if let Some(p) = pathenv.find(&s.trim()) {
                     let mut c = process::Command::new(p);
                     let mut arg_iter = args.split(' ');
                     let _ = arg_iter.next(); // cmd
                     for arg in arg_iter {
                         c.arg(arg);
                     }
-                    let out = std::str::from_utf8(&c.output().unwrap().stdout).unwrap().into();
+                    let out = std::str::from_utf8(&c.output().unwrap().stdout)
+                        .unwrap()
+                        .into();
                     Ok(Command::Local(out))
                 } else {
                     Err(CommandParsingError)
