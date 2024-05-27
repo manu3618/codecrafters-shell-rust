@@ -4,6 +4,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::io::{self, Write};
 use std::path::PathBuf;
+use std::process;
 use std::str::FromStr;
 
 #[derive(Debug)]
@@ -46,6 +47,8 @@ enum Command {
     Exit(String),
     Echo(String),
     Type(Type),
+    /// Local command with the output
+    Local(String),
 }
 
 #[derive(Debug)]
@@ -82,7 +85,20 @@ impl FromStr for Command {
                     }
                 }
             },
-            _ => Err(CommandParsingError),
+            _ => {
+                if let Some(p) = pathenv.find(args.split(' ').next().unwrap_or("")) {
+                    let mut c = process::Command::new(p);
+                    let mut arg_iter = args.split(' ');
+                    let _ = arg_iter.next(); // cmd
+                    for arg in arg_iter {
+                        c.arg(arg);
+                    }
+                    let out = std::str::from_utf8(&c.output().unwrap().stdout).unwrap().into();
+                    Ok(Command::Local(out))
+                } else {
+                    Err(CommandParsingError)
+                }
+            }
         }
     }
 }
@@ -93,6 +109,7 @@ impl Display for Command {
             Command::Exit(_) => write!(f, "exit"),
             Command::Echo(_) => write!(f, "echo"),
             Command::Type(_) => write!(f, "type"),
+            Command::Local(_) => unimplemented!(),
         }
     }
 }
@@ -123,6 +140,7 @@ fn main() {
                     )
                 }
                 Command::Type(Type::Unknown(u)) => println!("{} not found", u),
+                Command::Local(o) => println!("{}", o),
             }
         } else {
             println!("{}: command not found", &input.trim())
