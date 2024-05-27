@@ -143,7 +143,7 @@ fn main() {
                     )
                 }
                 Command::Type(Type::Unknown(u)) => println!("{} not found", u),
-                Command::Local(o) => println!("{}", o),
+                Command::Local(o) => print!("{}", o),
             }
         } else {
             println!("{}: command not found", &input.trim())
