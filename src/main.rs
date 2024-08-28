@@ -50,6 +50,7 @@ enum Command {
     Exit(String),
     Echo(String),
     Type(Type),
+    Pwd,
     /// Local command with the output
     Local(String),
 }
@@ -80,7 +81,7 @@ impl FromStr for Command {
             "echo" => Ok(Command::Echo(args)),
             "type" => match Command::from_str(&args) {
                 Ok(Command::Local(_)) => Ok(Command::Type(Type::Local(
-                    pathenv.find(parts[1].into()).unwrap(),
+                    pathenv.find(parts[1]).unwrap(),
                 ))),
                 Ok(c) => Ok(Command::Type(Type::Builtin(Box::new(c)))),
                 Err(_) => {
@@ -91,6 +92,7 @@ impl FromStr for Command {
                     }
                 }
             },
+            "pwd" => Ok(Command::Pwd),
             cmd => {
                 if let Some(p) = pathenv.find(cmd) {
                     let mut c = process::Command::new(p);
@@ -115,6 +117,7 @@ impl Display for Command {
             Command::Exit(_) => write!(f, "exit"),
             Command::Echo(_) => write!(f, "echo"),
             Command::Type(_) => write!(f, "type"),
+            Command::Pwd => write!(f, "pwd"),
             Command::Local(_) => unimplemented!(),
         }
     }
@@ -146,6 +149,10 @@ fn main() {
                     )
                 }
                 Command::Type(Type::Unknown(u)) => println!("{} not found", u),
+                Command::Pwd => {
+                    let path = env::current_dir().unwrap();
+                    println!("{}", path.display())
+                }
                 Command::Local(o) => print!("{}", o),
             }
         } else {
