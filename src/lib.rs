@@ -28,7 +28,7 @@
 ///     vec!["example\\\"testhello\\\"shell"]
 /// );
 /// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
-/// assert_eq!(parse_args("\"hello'script'\\n'world\""), vec![r"hello'script'\n'world"]);
+/// assert_eq!(parse_args("\"hello'script'\\\\n'world\""), vec![r"hello'script'\n'world"]);
 /// assert_eq!(parse_args("\"hello\\\"insidequotes\"script\""), vec!["hello\"insidequotesscript\""]);
 /// ```
 ///
@@ -44,7 +44,7 @@ pub fn parse_args(input: &str) -> Vec<String> {
         let mut escaping = false;
         for c in input.chars() {
             if escaping {
-                buff.push(c.clone());
+                buff.push(c);
                 escaping = false;
                 continue;
             }
@@ -56,7 +56,7 @@ pub fn parse_args(input: &str) -> Vec<String> {
                     }
                     buff.clear();
                 }
-                _ => buff.push(c.into()),
+                _ => buff.push(c),
             }
         }
         if !buff.is_empty() {
@@ -74,10 +74,12 @@ pub fn parse_args(input: &str) -> Vec<String> {
                 .expect("unable to find closing quote");
             let mut args = parse_args(&input[..at]);
             if quote == '"' {
-                while input.chars().nth(at + to) != Some('\\') {
-                    to = input[(at + to + 1)..]
-                        .find(quote)
-                        .expect("unable to find closing quote");
+                while input.chars().nth(at + to) == Some('\\') {
+                    to = at
+                        + to
+                        + input[(at + to + 1)..]
+                            .find(quote)
+                            .expect("unable to find closing quote");
                 }
                 args.push(handle_double_quoted(&input[at + 1..at + to + 1]));
             } else {
@@ -99,7 +101,7 @@ fn handle_double_quoted(input: &str) -> String {
         if escaping {
             dbg!(c);
             match c {
-                '\\' | '$' | '"' => res.push(c.into()),
+                '\\' | '$' | '"' => res.push(c),
                 _ => res += format!("\\{}", c).as_str(),
             }
             escaping = false;
@@ -109,7 +111,7 @@ fn handle_double_quoted(input: &str) -> String {
                     escaping = true;
                     continue;
                 }
-                _ => res.push(c.into()),
+                _ => res.push(c),
             }
         }
     }
