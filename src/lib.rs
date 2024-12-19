@@ -19,7 +19,9 @@
 /// assert_eq!(parse_args(r"world\ \ \ \ \ \ script"), vec!["world      script"]);
 /// assert_eq!(
 ///     parse_args("\"/tmp/file\\name\" \"/tmp/file\\ name\""),
-///     vec![r"/tmp/file\name", r"/tmp/file\ name"]);
+///     vec![r"/tmp/file\name", r"/tmp/file\ name"]
+/// );
+/// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
 /// ```
 ///
 pub fn parse_args(input: &str) -> Vec<String> {
@@ -41,14 +43,16 @@ pub fn parse_args(input: &str) -> Vec<String> {
             match c {
                 '\\' => escaping = true,
                 l if l.is_whitespace() => {
-                    res.push(buff.clone());
+                    if !buff.trim().is_empty() {
+                        res.push(String::from(buff.trim()).clone());
+                    }
                     buff.clear();
                 }
                 _ => buff.push(c.into()),
             }
         }
         if !buff.is_empty() {
-            res.push(buff.clone());
+            res.push(String::from(buff.trim()).clone());
         }
         return res;
     }
