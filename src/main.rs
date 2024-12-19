@@ -80,9 +80,9 @@ impl FromStr for Command {
             "exit" => Ok(Command::Exit(args)),
             "echo" => Ok(Command::Echo(args)),
             "type" => match Command::from_str(&args) {
-                Ok(Command::Local(_)) => Ok(Command::Type(Type::Local(
-                    pathenv.find(parts[1]).unwrap(),
-                ))),
+                Ok(Command::Local(_)) => {
+                    Ok(Command::Type(Type::Local(pathenv.find(parts[1]).unwrap())))
+                }
                 Ok(c) => Ok(Command::Type(Type::Builtin(Box::new(c)))),
                 Err(_) => {
                     if let Some(p) = pathenv.find(args.split(' ').next().unwrap_or("")) {
