@@ -32,10 +32,6 @@ pub fn parse_args(input: &str) -> Vec<String> {
             let to = input[(at + 1)..]
                 .find(quote)
                 .expect("unable to find closing quote");
-            dbg!(at, to);
-            dbg!(&input[..at]);
-            dbg!(&input[(at + 1)..(at + to + 1)]);
-            dbg!(&input[(at + to + 2)..]);
             let mut args = parse_args(&input[..at]);
             args.push(input[at + 1..at + to + 1].into());
             args.extend(parse_args(&input[(to + at + 2)..]));
