@@ -3,6 +3,7 @@ use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
 use std::io::{self, Write};
+use std::path::Path;
 use std::path::PathBuf;
 use std::process;
 use std::str::FromStr;
@@ -51,6 +52,7 @@ enum Command {
     Echo(String),
     Type(Type),
     Pwd,
+    Cd(String),
     /// Local command with the output
     Local(String),
 }
@@ -93,6 +95,7 @@ impl FromStr for Command {
                 }
             },
             "pwd" => Ok(Command::Pwd),
+            "cd" => Ok(Command::Cd(args)),
             cmd => {
                 if let Some(p) = pathenv.find(cmd) {
                     let mut c = process::Command::new(p);
@@ -118,6 +121,7 @@ impl Display for Command {
             Command::Echo(_) => write!(f, "echo"),
             Command::Type(_) => write!(f, "type"),
             Command::Pwd => write!(f, "pwd"),
+            Command::Cd(_) => write!(f, "cd"),
             Command::Local(_) => unimplemented!(),
         }
     }
@@ -152,6 +156,13 @@ fn main() {
                 Command::Pwd => {
                     let path = env::current_dir().unwrap();
                     println!("{}", path.display())
+                }
+                Command::Cd(path) => {
+                    let path = Path::new(&path);
+                    let _ = env::set_current_dir(path).or_else(|_| {
+                        println!("cd {}: No such file or directory", path.display());
+                        Ok::<(), String>(())
+                    });
                 }
                 Command::Local(o) => print!("{}", o),
             }
