@@ -94,12 +94,10 @@ pub fn parse_args(input: &str) -> Vec<String> {
 
 /// Inside double quotes, some backslash are escape characters
 fn handle_double_quoted(input: &str) -> String {
-    dbg!(&input);
     let mut res = String::new();
     let mut escaping = false;
     for c in input.chars() {
         if escaping {
-            dbg!(c);
             match c {
                 '\\' | '$' | '"' => res.push(c),
                 _ => res += format!("\\{}", c).as_str(),
