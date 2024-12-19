@@ -158,11 +158,12 @@ fn main() {
                     println!("{}", path.display())
                 }
                 Command::Cd(path) => {
+                    let home = env::var("HOME").expect("HOME should be set");
                     let path = match path.as_str() {
-                        "~" | "" => std::env::home_dir().unwrap(),
-                        _ => Path::new(&path).into(),
+                        "~" | "" => Path::new(&home),
+                        _ => Path::new(&path),
                     };
-                    let _ = env::set_current_dir(path.clone()).or_else(|_| {
+                    let _ = env::set_current_dir(path).or_else(|_| {
                         println!("cd: {}: No such file or directory", path.display());
                         Ok::<(), String>(())
                     });
