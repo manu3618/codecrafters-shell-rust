@@ -15,6 +15,11 @@
 /// assert_eq!(parse_args("''"), vec!["",]);
 /// assert_eq!(parse_args(""), Vec::<String>::new());
 /// assert_eq!(parse_args("a b c 'd '"), vec!["a", "b", "c", "d "]);
+/// assert_eq!(parse_args("\"before\\  after\""), vec![r"before\  after"]);
+/// assert_eq!(parse_args(r"world\ \ \ \ \ \ script"), vec!["world      script"]);
+/// assert_eq!(
+///     parse_args("\"/tmp/file\\name\" \"/tmp/file\\ name\""),
+///     vec![r"/tmp/file\name", r"/tmp/file\ name"]);
 /// ```
 ///
 pub fn parse_args(input: &str) -> Vec<String> {
@@ -24,7 +29,28 @@ pub fn parse_args(input: &str) -> Vec<String> {
     }
     let quotes = ['"', '\''];
     if !input.contains(quotes) {
-        return input.split_whitespace().map(String::from).collect();
+        let mut res = Vec::new();
+        let mut buff = String::new();
+        let mut escaping = false;
+        for c in input.chars() {
+            if escaping {
+                buff.push(c.clone());
+                escaping = false;
+                continue;
+            }
+            match c {
+                '\\' => escaping = true,
+                l if l.is_whitespace() => {
+                    res.push(buff.clone());
+                    buff.clear();
+                }
+                _ => buff.push(c.into()),
+            }
+        }
+        if !buff.is_empty() {
+            res.push(buff.clone());
+        }
+        return res;
     }
 
     for quote in quotes {
