@@ -148,7 +148,7 @@ fn main() {
                         p.to_str().unwrap()
                     )
                 }
-                Command::Type(Type::Unknown(u)) => println!("{} not found", u),
+                Command::Type(Type::Unknown(u)) => println!("{}: not found", u),
                 Command::Pwd => {
                     let path = env::current_dir().unwrap();
                     println!("{}", path.display())
