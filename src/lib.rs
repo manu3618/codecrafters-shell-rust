@@ -22,6 +22,13 @@
 ///     vec![r"/tmp/file\name", r"/tmp/file\ name"]
 /// );
 /// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
+/// assert_eq!(parse_args(r"'shell\\\nscript'"), vec![r"shell\\\nscript"]);
+/// assert_eq!(
+///     parse_args("'example\\\"testhello\\\"shell'"),
+///     vec!["example\\\"testhello\\\"shell"]
+/// );
+/// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
+/// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
 /// ```
 ///
 pub fn parse_args(input: &str) -> Vec<String> {
@@ -29,7 +36,7 @@ pub fn parse_args(input: &str) -> Vec<String> {
     if input.is_empty() {
         return Vec::new();
     }
-    let quotes = ['"', '\''];
+    let mut  quotes = ['"', '\''];
     if !input.contains(quotes) {
         let mut res = Vec::new();
         let mut buff = String::new();
@@ -57,6 +64,8 @@ pub fn parse_args(input: &str) -> Vec<String> {
         return res;
     }
 
+    // handle first encontered quote first
+    quotes.sort_by_key(|&k| input.find(k).unwrap_or(input.len()));
     for quote in quotes {
         if let Some(at) = input.find(quote) {
             let to = input[(at + 1)..]
