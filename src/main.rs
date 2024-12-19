@@ -1,3 +1,4 @@
+use shell_starter_rust::parse_args;
 use std::env;
 use std::ffi::OsStr;
 use std::fmt;
@@ -99,7 +100,7 @@ impl FromStr for Command {
             cmd => {
                 if let Some(p) = pathenv.find(cmd) {
                     let mut c = process::Command::new(p);
-                    for arg in args.split(' ') {
+                    for arg in parse_args(&args) {
                         c.arg(arg);
                     }
                     let out = std::str::from_utf8(&c.output().unwrap().stdout)
@@ -143,7 +144,7 @@ fn main() {
         if let Ok(c) = Command::from_str(&input) {
             match c {
                 Command::Exit(_a) => return,
-                Command::Echo(e) => println!("{}", &e),
+                Command::Echo(e) => println!("{}", &parse_args(&e).join(" ")),
                 Command::Type(Type::Builtin(c)) => println!("{} is a shell builtin", c),
                 Command::Type(Type::Local(p)) => {
                     println!(
