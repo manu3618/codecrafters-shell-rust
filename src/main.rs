@@ -160,7 +160,7 @@ fn main() {
                 Command::Cd(path) => {
                     let path = Path::new(&path);
                     let _ = env::set_current_dir(path).or_else(|_| {
-                        println!("cd {}: No such file or directory", path.display());
+                        println!("cd: {}: No such file or directory", path.display());
                         Ok::<(), String>(())
                     });
                 }
