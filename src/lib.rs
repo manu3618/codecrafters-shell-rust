@@ -28,7 +28,8 @@
 ///     vec!["example\\\"testhello\\\"shell"]
 /// );
 /// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
-/// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
+/// assert_eq!(parse_args("\"hello'script'\\n'world\""), vec![r"hello'script'\n'world"]);
+/// assert_eq!(parse_args("\"hello\\\"insidequotes\"script\""), vec!["hello\"insidequotesscript\""]);
 /// ```
 ///
 pub fn parse_args(input: &str) -> Vec<String> {
@@ -36,7 +37,7 @@ pub fn parse_args(input: &str) -> Vec<String> {
     if input.is_empty() {
         return Vec::new();
     }
-    let mut  quotes = ['"', '\''];
+    let mut quotes = ['"', '\''];
     if !input.contains(quotes) {
         let mut res = Vec::new();
         let mut buff = String::new();
@@ -68,14 +69,49 @@ pub fn parse_args(input: &str) -> Vec<String> {
     quotes.sort_by_key(|&k| input.find(k).unwrap_or(input.len()));
     for quote in quotes {
         if let Some(at) = input.find(quote) {
-            let to = input[(at + 1)..]
+            let mut to = input[(at + 1)..]
                 .find(quote)
                 .expect("unable to find closing quote");
             let mut args = parse_args(&input[..at]);
-            args.push(input[at + 1..at + to + 1].into());
+            if quote == '"' {
+                while input.chars().nth(at + to) != Some('\\') {
+                    to = input[(at + to + 1)..]
+                        .find(quote)
+                        .expect("unable to find closing quote");
+                }
+                args.push(handle_double_quoted(&input[at + 1..at + to + 1]));
+            } else {
+                args.push(input[at + 1..at + to + 1].into());
+            }
             args.extend(parse_args(&input[(to + at + 2)..]));
             return args;
         }
     }
     unreachable!();
+}
+
+/// Inside double quotes, some backslash are escape characters
+fn handle_double_quoted(input: &str) -> String {
+    dbg!(&input);
+    let mut res = String::new();
+    let mut escaping = false;
+    for c in input.chars() {
+        if escaping {
+            dbg!(c);
+            match c {
+                '\\' | '$' | '"' => res.push(c.into()),
+                _ => res += format!("\\{}", c).as_str(),
+            }
+            escaping = false;
+        } else {
+            match c {
+                '\\' => {
+                    escaping = true;
+                    continue;
+                }
+                _ => res.push(c.into()),
+            }
+        }
+    }
+    res
 }
