@@ -158,7 +158,10 @@ fn main() {
                     println!("{}", path.display())
                 }
                 Command::Cd(path) => {
-                    let path = Path::new(&path);
+                    let path = match path.as_str() {
+                        "~" | "" => &std::env::home_dir().unwrap(),
+                        _ => Path::new(&path),
+                    };
                     let _ = env::set_current_dir(path).or_else(|_| {
                         println!("cd: {}: No such file or directory", path.display());
                         Ok::<(), String>(())
