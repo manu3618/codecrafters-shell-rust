@@ -38,7 +38,8 @@ pub fn parse_args(input: &str) -> Vec<String> {
         return Vec::new();
     }
     let mut quotes = ['"', '\''];
-    if !input.contains(quotes) {
+    if quotes.iter().map(|&q| find_quote(input, q).len()).sum::<usize>() == 0 {
+        // no unescaped quotes
         let mut res = Vec::new();
         let mut buff = String::new();
         let mut escaping = false;
@@ -68,28 +69,45 @@ pub fn parse_args(input: &str) -> Vec<String> {
     // handle first encontered quote first
     quotes.sort_by_key(|&k| input.find(k).unwrap_or(input.len()));
     for quote in quotes {
-        if let Some(at) = input.find(quote) {
-            let mut to = input[(at + 1)..]
-                .find(quote)
-                .expect("unable to find closing quote");
-            let mut args = parse_args(&input[..at]);
-            if quote == '"' {
-                while input.chars().nth(at + to) == Some('\\') {
-                    to = at
-                        + to
-                        + input[(at + to + 1)..]
-                            .find(quote)
-                            .expect("unable to find closing quote");
-                }
-                args.push(handle_double_quoted(&input[at + 1..at + to + 1]));
-            } else {
-                args.push(input[at + 1..at + to + 1].into());
-            }
-            args.extend(parse_args(&input[(to + at + 2)..]));
-            return args;
+        let quote_idx = find_quote(&input, quote);
+        if quote_idx.is_empty() {
+            continue;
         }
+        let &at = quote_idx.first().expect("Alredy handle emty vector");
+        let &to = quote_idx.get(1).expect("unable to find closing quote");
+        let mut args = parse_args(&input[..at]);
+        if quote == '"' {
+            args.push(handle_double_quoted(&input[at + 1..to]));
+        } else {
+            args.push(input[at + 1..to].into());
+        }
+        args.extend(parse_args(&input[(to + 1)..]));
+        return args;
     }
     unreachable!();
+}
+
+fn find_quote(input: &str, quote: char) -> Vec<usize> {
+    match quote {
+        '"' => find_unescaped_doublequotes(&input),
+        _ => input.match_indices(quote).map(|(idx, _)| idx).collect(),
+    }
+}
+
+fn find_unescaped_doublequotes(input: &str) -> Vec<usize> {
+    let mut res = Vec::new();
+    for (idx, _) in input.match_indices('"') {
+        if idx == 0 {
+            res.push(0);
+            continue;
+        }
+        if input.chars().nth(idx - 1) == Some('\\') {
+            continue;
+        } else {
+            res.push(idx);
+        }
+    }
+    res
 }
 
 /// Inside double quotes, some backslash are escape characters
