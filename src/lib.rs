@@ -29,7 +29,8 @@
 /// );
 /// assert_eq!(parse_args("world     test"), vec!["world", "test"]);
 /// assert_eq!(parse_args("\"hello'script'\\\\n'world\""), vec![r"hello'script'\n'world"]);
-/// assert_eq!(parse_args("\"hello\\\"insidequotes\"script\""), vec!["hello\"insidequotesscript\""]);
+/// assert_eq!(parse_args("\"example\\\"insidequotes\"hello\\\""), vec!["example\"insidequoteshello\""]);
+/// assert_eq!(parse_args("\"example\\\"inside\"test\\\""), vec!["example\"insidetest\""]);
 /// ```
 ///
 pub fn parse_args(input: &str) -> Vec<String> {
@@ -37,59 +38,57 @@ pub fn parse_args(input: &str) -> Vec<String> {
     if input.is_empty() {
         return Vec::new();
     }
+    let mut args = Vec::new();
+    let mut buff = String::new();
     let mut quotes = ['"', '\''];
-    if quotes.iter().map(|&q| find_quote(input, q).len()).sum::<usize>() == 0 {
-        // no unescaped quotes
-        let mut res = Vec::new();
-        let mut buff = String::new();
-        let mut escaping = false;
-        for c in input.chars() {
-            if escaping {
-                buff.push(c);
-                escaping = false;
-                continue;
-            }
-            match c {
-                '\\' => escaping = true,
-                l if l.is_whitespace() => {
-                    if !buff.trim().is_empty() {
-                        res.push(String::from(buff.trim()).clone());
-                    }
-                    buff.clear();
-                }
-                _ => buff.push(c),
-            }
-        }
-        if !buff.is_empty() {
-            res.push(String::from(buff.trim()).clone());
-        }
-        return res;
-    }
-
-    // handle first encontered quote first
+    let mut escaping = false;
     quotes.sort_by_key(|&k| input.find(k).unwrap_or(input.len()));
-    for quote in quotes {
-        let quote_idx = find_quote(&input, quote);
-        if quote_idx.is_empty() {
-            continue;
+    let mut cursor = 0;
+    while cursor <= input.len() {
+        let c = match input.chars().nth(cursor){
+            Some(x) => x,
+            None => break,
+        };
+        if escaping {
+            buff.push(c);
+            escaping = false;
+            cursor += 1;
+            continue
         }
-        let &at = quote_idx.first().expect("Alredy handle emty vector");
-        let &to = quote_idx.get(1).expect("unable to find closing quote");
-        let mut args = parse_args(&input[..at]);
-        if quote == '"' {
-            args.push(handle_double_quoted(&input[at + 1..to]));
-        } else {
-            args.push(input[at + 1..to].into());
+        match c {
+            '"' => {
+                let quote_idx = find_quote(&input[cursor..], '"');
+                let at =cursor +  quote_idx.first().expect("Already handle empty vector");
+                let to =cursor +  quote_idx.get(1).expect("unable to find closing quote");
+                buff += &handle_double_quoted(&input[at+1..to]);
+                cursor = to;
+            },
+            '\'' => {
+                let quote_idx = find_quote(&input[cursor..], '\'');
+                let at =cursor +  quote_idx.first().expect("Alredy handle empty vector");
+                let to =cursor +  quote_idx.get(1).expect("unable to find closing quote");
+                buff += &input[at+1..to];
+                cursor = to;
+            },
+            '\\' => escaping=true,
+            l if l.is_whitespace() => {
+                if !buff.trim().is_empty() {
+                    args.push(String::from(buff.trim()).clone());
+                    buff.clear();
+                };
+            },
+            _ => buff.push(c),
+
         }
-        args.extend(parse_args(&input[(to + 1)..]));
-        return args;
+        cursor += 1;
     }
-    unreachable!();
+    args.push(buff);
+    args
 }
 
 fn find_quote(input: &str, quote: char) -> Vec<usize> {
     match quote {
-        '"' => find_unescaped_doublequotes(&input),
+        '"' => find_unescaped_doublequotes(input),
         _ => input.match_indices(quote).map(|(idx, _)| idx).collect(),
     }
 }
