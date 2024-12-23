@@ -74,17 +74,17 @@ impl FromStr for Command {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let pathenv: PathEnv =
             PathEnv::from_str(&env::var("PATH").unwrap()).expect("PATH should be set");
-        let parts = s.trim().splitn(2, ' ').collect::<Vec<_>>();
-        let args = match parts.get(1) {
-            Some(s) => s.to_string(),
-            None => String::new(),
-        };
-        match *parts.first().unwrap_or(&"") {
+        let s = s.trim();
+        let parts = parse_args(s);
+        let empty = String::from("");
+        let cmd = parts.first().unwrap_or(&empty).as_str();
+        let args = String::from(&s[cmd.len()..]);
+        match cmd {
             "exit" => Ok(Command::Exit(args)),
             "echo" => Ok(Command::Echo(args)),
             "type" => match Command::from_str(&args) {
                 Ok(Command::Local(_)) => {
-                    Ok(Command::Type(Type::Local(pathenv.find(parts[1]).unwrap())))
+                    Ok(Command::Type(Type::Local(pathenv.find(&args).unwrap())))
                 }
                 Ok(c) => Ok(Command::Type(Type::Builtin(Box::new(c)))),
                 Err(_) => {
