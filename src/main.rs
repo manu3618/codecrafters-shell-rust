@@ -1,3 +1,4 @@
+use anyhow::Result;
 use shell_starter_rust::parse_args;
 use std::env;
 use std::ffi::OsStr;
@@ -73,85 +74,94 @@ impl FromStr for Command {
     type Err = CommandParsingError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let pathenv: PathEnv =
-            PathEnv::from_str(&env::var("PATH").unwrap()).expect("PATH should be set");
-        let s = s.trim();
-        let parts = &parse_args(s);
-        let empty = String::from("");
-        let cmd = parts.first().unwrap_or(&empty).as_str();
-        let mut args = String::new();
-        if !parts.get(1).unwrap_or(&empty).is_empty() {
-            args = s[cmd.len()..]
-                .split_once(char::is_whitespace)
-                .unwrap()
-                .1
-                .to_string();
-        }
-
-        let mut to_remove = Vec::new();
-        let sout = match parts.iter().position(|elt| elt == "1>" || elt == ">") {
-            Some(idx) => {
-                let filename = parts[idx + 1].clone();
-                to_remove.extend([idx, idx + 1]);
-                Some(File::create(filename).unwrap())
-            }
-            None => None,
-        };
-        let serr = match parts.iter().position(|elt| elt == "2>") {
-            Some(idx) => {
-                let filename = parts[idx + 1].clone();
-                to_remove.extend([idx, idx + 1]);
-                Some(File::create(filename).unwrap())
-            }
-            None => None,
-        };
-        to_remove.sort_by(|a, b| b.cmp(a));
-        let mut parts = parts.clone();
-        for idx in to_remove {
-            let _ = parts.remove(idx);
-        }
-        let _ = parts.remove(0); // cmd
-
-        match cmd {
-            "exit" => Ok(Command::Exit(args)),
-            "echo" => Ok(Command::Echo(args)),
-            "type" => match Command::from_str(&args) {
-                Ok(Command::Local(_)) => {
-                    Ok(Command::Type(Type::Local(pathenv.find(&args).unwrap())))
-                }
-                Ok(c) => Ok(Command::Type(Type::Builtin(Box::new(c)))),
-                Err(_) => {
-                    if let Some(p) = pathenv.find(args.split(' ').next().unwrap_or("")) {
-                        Ok(Command::Type(Type::Local(p)))
-                    } else {
-                        Ok(Command::Type(Type::Unknown(args)))
-                    }
-                }
-            },
-            "pwd" => Ok(Command::Pwd),
-            "cd" => Ok(Command::Cd(args)),
-            cmd => {
-                if let Some(p) = pathenv.find(cmd) {
-                    let mut c = process::Command::new(p);
-                    for arg in parts {
-                        c.arg(arg);
-                    }
-                    if let Some(f) = sout {
-                        c.stdout(f);
-                    }
-                    if let Some(f) = serr {
-                        c.stderr(f);
-                    }
-                    let out = std::str::from_utf8(&c.output().unwrap().stdout)
-                        .unwrap()
-                        .into();
-                    Ok(Command::Local(out))
-                } else {
-                    Err(CommandParsingError)
-                }
-            }
+        match extract_command(s) {
+            Ok((c, _, _)) => Ok(c),
+            Err(e) => Err(e),
         }
     }
+}
+
+/// Extract command, stdout and stderr
+fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), CommandParsingError> {
+    let pathenv: PathEnv =
+        PathEnv::from_str(&env::var("PATH").unwrap()).expect("PATH should be set");
+    let s = s.trim();
+    let parts = &parse_args(s);
+    let empty = String::from("");
+    let cmd = parts.first().unwrap_or(&empty).as_str();
+    let mut args = String::new();
+    if !parts.get(1).unwrap_or(&empty).is_empty() {
+        args = s[cmd.len()..]
+            .split_once(char::is_whitespace)
+            .unwrap()
+            .1
+            .to_string();
+    }
+
+    let mut to_remove = Vec::new();
+    let sout = match parts.iter().position(|elt| elt == "1>" || elt == ">") {
+        Some(idx) => {
+            let filename = parts[idx + 1].clone();
+            to_remove.extend([idx, idx + 1]);
+            Some(File::create(filename).unwrap())
+        }
+        None => None,
+    };
+    let serr = match parts.iter().position(|elt| elt == "2>") {
+        Some(idx) => {
+            let filename = parts[idx + 1].clone();
+            to_remove.extend([idx, idx + 1]);
+            Some(File::create(filename).unwrap())
+        }
+        None => None,
+    };
+    to_remove.sort_by(|a, b| b.cmp(a));
+    let mut parts = parts.clone();
+    for idx in to_remove {
+        let _ = parts.remove(idx);
+    }
+    let _ = parts.remove(0); // cmd
+
+    let command = match cmd {
+        "exit" => Command::Exit(args),
+        "echo" => Command::Echo(args),
+        "type" => match extract_command(&args) {
+            Ok((Command::Local(_), _, _)) => {
+                Command::Type(Type::Local(pathenv.find(&args).unwrap()))
+            }
+            Ok((c, _, _)) => Command::Type(Type::Builtin(Box::new(c))),
+            Err(_) => {
+                if let Some(p) = pathenv.find(args.split(' ').next().unwrap_or("")) {
+                    Command::Type(Type::Local(p))
+                } else {
+                    Command::Type(Type::Unknown(args))
+                }
+            }
+        },
+        "pwd" => Command::Pwd,
+        "cd" => Command::Cd(args),
+        cmd => {
+            if let Some(p) = pathenv.find(cmd) {
+                let mut c = process::Command::new(p);
+                for arg in parts {
+                    c.arg(arg);
+                }
+                if let Some(f) = sout {
+                    c.stdout(f);
+                }
+                if let Some(f) = serr {
+                    c.stderr(f);
+                }
+                let out = std::str::from_utf8(&c.output().unwrap().stdout)
+                    .unwrap()
+                    .into();
+                return Ok((Command::Local(out), None, None));
+            } else {
+                return Err(CommandParsingError);
+            }
+        }
+    };
+    Ok((command, sout, serr))
 }
 
 impl Display for Command {
@@ -167,7 +177,7 @@ impl Display for Command {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     // eprintln!("Logs from your program will appear here!");
 
@@ -180,10 +190,13 @@ fn main() {
         let stdin = io::stdin();
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
-        if let Ok(c) = Command::from_str(&input) {
+        if let Ok((c, sout, _serr)) = extract_command(&input) {
             match c {
-                Command::Exit(_a) => return,
-                Command::Echo(e) => println!("{}", &parse_args(&e).join(" ")),
+                Command::Exit(_a) => return Ok(()),
+                Command::Echo(e) => match sout {
+                    Some(mut f) => write!(f, "{}", &parse_args(&e).join(" "))?,
+                    None => println!("{}", &parse_args(&e).join(" ")),
+                },
                 Command::Type(Type::Builtin(c)) => println!("{} is a shell builtin", c),
                 Command::Type(Type::Local(p)) => {
                     println!(
