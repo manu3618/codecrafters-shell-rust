@@ -31,6 +31,7 @@
 /// assert_eq!(parse_args("\"hello'script'\\\\n'world\""), vec![r"hello'script'\n'world"]);
 /// assert_eq!(parse_args("\"example\\\"insidequotes\"hello\\\""), vec!["example\"insidequoteshello\""]);
 /// assert_eq!(parse_args("\"example\\\"inside\"test\\\""), vec!["example\"insidetest\""]);
+/// assert_eq!(parse_args("\"mixed\\\"quote\'example'\\\\\""), vec!["mixed\"quote\'example\'\\"]);
 /// ```
 ///
 pub fn parse_args(input: &str) -> Vec<String> {
@@ -45,7 +46,7 @@ pub fn parse_args(input: &str) -> Vec<String> {
     quotes.sort_by_key(|&k| input.find(k).unwrap_or(input.len()));
     let mut cursor = 0;
     while cursor <= input.len() {
-        let c = match input.chars().nth(cursor){
+        let c = match input.chars().nth(cursor) {
             Some(x) => x,
             None => break,
         };
@@ -53,32 +54,31 @@ pub fn parse_args(input: &str) -> Vec<String> {
             buff.push(c);
             escaping = false;
             cursor += 1;
-            continue
+            continue;
         }
         match c {
             '"' => {
                 let quote_idx = find_quote(&input[cursor..], '"');
-                let at =cursor +  quote_idx.first().expect("Already handle empty vector");
-                let to =cursor +  quote_idx.get(1).expect("unable to find closing quote");
-                buff += &handle_double_quoted(&input[at+1..to]);
+                let at = cursor + quote_idx.first().expect("Already handle empty vector");
+                let to = cursor + quote_idx.get(1).expect("unable to find closing quote");
+                buff += &handle_double_quoted(&input[at + 1..to]);
                 cursor = to;
-            },
+            }
             '\'' => {
                 let quote_idx = find_quote(&input[cursor..], '\'');
-                let at =cursor +  quote_idx.first().expect("Alredy handle empty vector");
-                let to =cursor +  quote_idx.get(1).expect("unable to find closing quote");
-                buff += &input[at+1..to];
+                let at = cursor + quote_idx.first().expect("Alredy handle empty vector");
+                let to = cursor + quote_idx.get(1).expect("unable to find closing quote");
+                buff += &input[at + 1..to];
                 cursor = to;
-            },
-            '\\' => escaping=true,
+            }
+            '\\' => escaping = true,
             l if l.is_whitespace() => {
                 if !buff.trim().is_empty() {
                     args.push(String::from(buff.trim()).clone());
                     buff.clear();
                 };
-            },
+            }
             _ => buff.push(c),
-
         }
         cursor += 1;
     }
@@ -95,15 +95,16 @@ fn find_quote(input: &str, quote: char) -> Vec<usize> {
 
 fn find_unescaped_doublequotes(input: &str) -> Vec<usize> {
     let mut res = Vec::new();
-    for (idx, _) in input.match_indices('"') {
-        if idx == 0 {
-            res.push(0);
-            continue;
-        }
-        if input.chars().nth(idx - 1) == Some('\\') {
-            continue;
+    let mut escaping = false;
+    for (idx, c) in input.chars().enumerate() {
+        if escaping {
+            escaping = false;
         } else {
-            res.push(idx);
+            match c {
+                '\\' => escaping = true,
+                '"' => res.push(idx),
+                _ => continue,
+            }
         }
     }
     res
@@ -113,8 +114,14 @@ fn find_unescaped_doublequotes(input: &str) -> Vec<usize> {
 fn handle_double_quoted(input: &str) -> String {
     let mut res = String::new();
     let mut escaping = false;
+    let mut inside_quote = false;
     for c in input.chars() {
-        if escaping {
+        if inside_quote {
+            if c == '\'' {
+                inside_quote = false;
+            }
+            res.push(c);
+        } else if escaping {
             match c {
                 '\\' | '$' | '"' => res.push(c),
                 _ => res += format!("\\{}", c).as_str(),
@@ -125,6 +132,10 @@ fn handle_double_quoted(input: &str) -> String {
                 '\\' => {
                     escaping = true;
                     continue;
+                }
+                '\'' => {
+                    inside_quote = true;
+                    res.push(c);
                 }
                 _ => res.push(c),
             }
