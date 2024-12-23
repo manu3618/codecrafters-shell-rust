@@ -3,6 +3,7 @@ use std::env;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
+use std::fs::File;
 use std::io::{self, Write};
 use std::path::Path;
 use std::path::PathBuf;
@@ -75,7 +76,7 @@ impl FromStr for Command {
         let pathenv: PathEnv =
             PathEnv::from_str(&env::var("PATH").unwrap()).expect("PATH should be set");
         let s = s.trim();
-        let parts = parse_args(s);
+        let parts = &parse_args(s);
         let empty = String::from("");
         let cmd = parts.first().unwrap_or(&empty).as_str();
         let mut args = String::new();
@@ -86,6 +87,31 @@ impl FromStr for Command {
                 .1
                 .to_string();
         }
+
+        let mut to_remove = Vec::new();
+        let sout = match parts.iter().position(|elt| elt == "1>" || elt == ">") {
+            Some(idx) => {
+                let filename = parts[idx + 1].clone();
+                to_remove.extend([idx, idx + 1]);
+                Some(File::create(filename).unwrap())
+            }
+            None => None,
+        };
+        let serr = match parts.iter().position(|elt| elt == "2>") {
+            Some(idx) => {
+                let filename = parts[idx + 1].clone();
+                to_remove.extend([idx, idx + 1]);
+                Some(File::create(filename).unwrap())
+            }
+            None => None,
+        };
+        to_remove.sort_by(|a, b| b.cmp(a));
+        let mut parts = parts.clone();
+        for idx in to_remove {
+            let _ = parts.remove(idx);
+        }
+        let _ = parts.remove(0); // cmd
+
         match cmd {
             "exit" => Ok(Command::Exit(args)),
             "echo" => Ok(Command::Echo(args)),
@@ -107,8 +133,14 @@ impl FromStr for Command {
             cmd => {
                 if let Some(p) = pathenv.find(cmd) {
                     let mut c = process::Command::new(p);
-                    for arg in parse_args(&args) {
+                    for arg in parts {
                         c.arg(arg);
+                    }
+                    if let Some(f) = sout {
+                        c.stdout(f);
+                    }
+                    if let Some(f) = serr {
+                        c.stderr(f);
                     }
                     let out = std::str::from_utf8(&c.output().unwrap().stdout)
                         .unwrap()
