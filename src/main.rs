@@ -194,7 +194,7 @@ fn main() -> Result<()> {
             match c {
                 Command::Exit(_a) => return Ok(()),
                 Command::Echo(e) => match sout {
-                    Some(mut f) => write!(f, "{}", &parse_args(&e).join(" "))?,
+                    Some(mut f) => write!(f, "{}\n", &parse_args(&e).join(" "))?,
                     None => println!("{}", &parse_args(&e).join(" ")),
                 },
                 Command::Type(Type::Builtin(c)) => println!("{} is a shell builtin", c),
