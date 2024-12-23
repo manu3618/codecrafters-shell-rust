@@ -124,7 +124,7 @@ fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), Com
 
     let command = match cmd {
         "exit" => Command::Exit(args),
-        "echo" => Command::Echo(args),
+        "echo" => Command::Echo(parts.join(" ")),
         "type" => match extract_command(&args) {
             Ok((Command::Local(_), _, _)) => {
                 Command::Type(Type::Local(pathenv.find(&args).unwrap()))
