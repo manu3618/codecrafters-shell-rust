@@ -80,7 +80,11 @@ impl FromStr for Command {
         let cmd = parts.first().unwrap_or(&empty).as_str();
         let mut args = String::new();
         if !parts.get(1).unwrap_or(&empty).is_empty() {
-            args = s[s.find(&parts[1]).expect("argument present in input")..].to_string();
+            args = s[cmd.len()..]
+                .split_once(char::is_whitespace)
+                .unwrap()
+                .1
+                .to_string();
         }
         match cmd {
             "exit" => Ok(Command::Exit(args)),
