@@ -78,7 +78,10 @@ impl FromStr for Command {
         let parts = parse_args(s);
         let empty = String::from("");
         let cmd = parts.first().unwrap_or(&empty).as_str();
-        let args = String::from(&s[cmd.len()..]);
+        let mut args = String::new();
+        if !parts.get(1).unwrap_or(&empty).is_empty() {
+            args = s[s.find(&parts[1]).expect("argument present in input")..].to_string();
+        }
         match cmd {
             "exit" => Ok(Command::Exit(args)),
             "echo" => Ok(Command::Echo(args)),
