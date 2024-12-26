@@ -142,6 +142,17 @@ fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), Com
                 to_remove.extend([idx, idx + 1]);
                 serr = Some(File::create(filename).unwrap());
             }
+            "2>>" => {
+                let filename = parts[idx + 1].clone();
+                to_remove.extend([idx, idx + 1]);
+                serr = Some(
+                    File::options()
+                        .append(true)
+                        .create(true)
+                        .open(filename)
+                        .unwrap(),
+                );
+            }
             _ => {}
         }
     }
