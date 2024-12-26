@@ -33,6 +33,7 @@
 /// assert_eq!(parse_args("\"example\\\"inside\"test\\\""), vec!["example\"insidetest\""]);
 /// assert_eq!(parse_args("\"mixed\\\"quote\'example'\\\\\""), vec!["mixed\"quote\'example\'\\"]);
 /// assert_eq!(parse_args("'exec with space' \"/tmp/pouet\""), vec!["exec with space", "/tmp/pouet"]);
+/// assert_eq!(parse_args("echo \"world'hello'\n'example\""), vec!["echo", "world'hello'\n'example"]);
 /// ```
 ///
 pub fn parse_args(input: &str) -> Vec<String> {

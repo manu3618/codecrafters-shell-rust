@@ -215,7 +215,7 @@ fn main() -> Result<()> {
         if let Ok((c, sout, serr)) = extract_command(&input) {
             let (out, err) = match c {
                 Command::Exit(_a) => return Ok(()),
-                Command::Echo(e) => (Some(format!("{}\n", &parse_args(&e).join(" "))), None),
+                Command::Echo(e) => (Some(format!("{}\n", &e)), None),
                 Command::Type(Type::Builtin(c)) => {
                     (Some(format!("{} is a shell builtin", c)), None)
                 }
