@@ -230,7 +230,7 @@ fn main() -> Result<()> {
                 Command::Type(Type::Unknown(u)) => (None, Some(format!("{}: not found", u))),
                 Command::Pwd => {
                     let path = env::current_dir().unwrap();
-                    (Some(format!("{}", path.display())), None)
+                    (Some(format!("{}\n", path.display())), None)
                 }
                 Command::Cd(path) => {
                     let home = env::var("HOME").expect("HOME should be set");
