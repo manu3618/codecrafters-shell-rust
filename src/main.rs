@@ -227,7 +227,7 @@ fn main() -> Result<()> {
                     )),
                     None,
                 ),
-                Command::Type(Type::Unknown(u)) => (None, Some(format!("{}: not found", u))),
+                Command::Type(Type::Unknown(u)) => (None, Some(format!("{}: not found\n", u))),
                 Command::Pwd => {
                     let path = env::current_dir().unwrap();
                     (Some(format!("{}\n", path.display())), None)
