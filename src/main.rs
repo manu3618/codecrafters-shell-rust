@@ -56,8 +56,26 @@ enum Command {
     Type(Type),
     Pwd,
     Cd(String),
-    /// Local command with the output
-    Local(String),
+    /// Local command with the output and error
+    Local(CmdOutput, CmdError),
+}
+
+#[derive(Debug)]
+struct CmdOutput(String);
+
+impl Display for CmdOutput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Debug)]
+struct CmdError(String);
+
+impl Display for CmdError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
 }
 
 #[derive(Debug)]
@@ -126,7 +144,7 @@ fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), Com
         "exit" => Command::Exit(args),
         "echo" => Command::Echo(parts.join(" ")),
         "type" => match extract_command(&args) {
-            Ok((Command::Local(_), _, _)) => {
+            Ok((Command::Local(_, _), _, _)) => {
                 Command::Type(Type::Local(pathenv.find(&args).unwrap()))
             }
             Ok((c, _, _)) => Command::Type(Type::Builtin(Box::new(c))),
@@ -152,10 +170,14 @@ fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), Com
                 if let Some(f) = serr {
                     c.stderr(f);
                 }
-                let out = std::str::from_utf8(&c.output().unwrap().stdout)
-                    .unwrap()
-                    .into();
-                return Ok((Command::Local(out), None, None));
+                let out = &c.output().unwrap();
+                let out_out = String::from_utf8(out.stdout.clone()).unwrap();
+                let out_err = String::from_utf8(out.stderr.clone()).unwrap();
+                return Ok((
+                    Command::Local(CmdOutput(out_out), CmdError(out_err)),
+                    None,
+                    None,
+                ));
             } else {
                 return Err(CommandParsingError);
             }
@@ -172,7 +194,7 @@ impl Display for Command {
             Command::Type(_) => write!(f, "type"),
             Command::Pwd => write!(f, "pwd"),
             Command::Cd(_) => write!(f, "cd"),
-            Command::Local(_) => unimplemented!(),
+            Command::Local(_, _) => unimplemented!(),
         }
     }
 }
@@ -190,25 +212,25 @@ fn main() -> Result<()> {
         let stdin = io::stdin();
         let mut input = String::new();
         stdin.read_line(&mut input).unwrap();
-        if let Ok((c, sout, _serr)) = extract_command(&input) {
-            match c {
+        if let Ok((c, sout, serr)) = extract_command(&input) {
+            let (out, err) = match c {
                 Command::Exit(_a) => return Ok(()),
-                Command::Echo(e) => match sout {
-                    Some(mut f) => write!(f, "{}\n", &parse_args(&e).join(" "))?,
-                    None => println!("{}", &parse_args(&e).join(" ")),
-                },
-                Command::Type(Type::Builtin(c)) => println!("{} is a shell builtin", c),
-                Command::Type(Type::Local(p)) => {
-                    println!(
+                Command::Echo(e) => (Some(format!("{}", &parse_args(&e).join(" "))), None),
+                Command::Type(Type::Builtin(c)) => {
+                    (Some(format!("{} is a shell builtin", c)), None)
+                }
+                Command::Type(Type::Local(p)) => (
+                    Some(format!(
                         "{} is {}",
                         p.file_name().unwrap().to_str().unwrap(),
                         p.to_str().unwrap()
-                    )
-                }
-                Command::Type(Type::Unknown(u)) => println!("{}: not found", u),
+                    )),
+                    None,
+                ),
+                Command::Type(Type::Unknown(u)) => (None, Some(format!("{}: not found", u))),
                 Command::Pwd => {
                     let path = env::current_dir().unwrap();
-                    println!("{}", path.display())
+                    (Some(format!("{}", path.display())), None)
                 }
                 Command::Cd(path) => {
                     let home = env::var("HOME").expect("HOME should be set");
@@ -216,12 +238,34 @@ fn main() -> Result<()> {
                         "~" | "" => Path::new(&home),
                         _ => Path::new(&path),
                     };
-                    let _ = env::set_current_dir(path).or_else(|_| {
-                        println!("cd: {}: No such file or directory", path.display());
-                        Ok::<(), String>(())
-                    });
+                    match env::set_current_dir(path) {
+                        Ok(_) => (None, None),
+                        Err(_) => (
+                            None,
+                            Some(format!("cd: {}: No such file or directory", path.display())),
+                        ),
+                    }
                 }
-                Command::Local(o) => print!("{}", o),
+                Command::Local(o, e) => (Some(o.0), Some(e.0)),
+            };
+
+            if let Some(mut f) = sout {
+                if let Some(content) = out {
+                    writeln!(f, "{}", content)?;
+                }
+            } else {
+                if let Some(content) = out {
+                    println!("{}", content);
+                }
+            }
+            if let Some(mut f) = serr {
+                if let Some(content) = err {
+                    writeln!(f, "{}", content)?;
+                }
+            } else {
+                if let Some(content) = err {
+                    println!("{}", content);
+                }
             }
         } else {
             println!("{}: command not found", &input.trim())
