@@ -117,22 +117,34 @@ fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), Com
     }
 
     let mut to_remove = Vec::new();
-    let sout = match parts.iter().position(|elt| elt == "1>" || elt == ">") {
-        Some(idx) => {
-            let filename = parts[idx + 1].clone();
-            to_remove.extend([idx, idx + 1]);
-            Some(File::create(filename).unwrap())
+    let mut sout = None;
+    let mut serr = None;
+    for (idx, part) in parts.iter().enumerate() {
+        match part.as_str() {
+            "1>" | ">" => {
+                let filename = parts[idx + 1].clone();
+                to_remove.extend([idx, idx + 1]);
+                sout = Some(File::create(filename).unwrap());
+            }
+            "1>>" | ">>" => {
+                let filename = parts[idx + 1].clone();
+                to_remove.extend([idx, idx + 1]);
+                sout = Some(
+                    File::options()
+                        .append(true)
+                        .create(true)
+                        .open(filename)
+                        .unwrap(),
+                );
+            }
+            "2>" => {
+                let filename = parts[idx + 1].clone();
+                to_remove.extend([idx, idx + 1]);
+                serr = Some(File::create(filename).unwrap());
+            }
+            _ => {}
         }
-        None => None,
-    };
-    let serr = match parts.iter().position(|elt| elt == "2>") {
-        Some(idx) => {
-            let filename = parts[idx + 1].clone();
-            to_remove.extend([idx, idx + 1]);
-            Some(File::create(filename).unwrap())
-        }
-        None => None,
-    };
+    }
     to_remove.sort_by(|a, b| b.cmp(a));
     let mut parts = parts.clone();
     for idx in to_remove {
