@@ -138,7 +138,10 @@ fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), Com
     for idx in to_remove {
         let _ = parts.remove(idx);
     }
-    let _ = parts.remove(0); // cmd
+
+    if !parts.is_empty() {
+        let _ = parts.remove(0); // cmd
+    }
 
     let command = match cmd {
         "exit" => Command::Exit(args),
