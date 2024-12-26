@@ -215,7 +215,7 @@ fn main() -> Result<()> {
         if let Ok((c, sout, serr)) = extract_command(&input) {
             let (out, err) = match c {
                 Command::Exit(_a) => return Ok(()),
-                Command::Echo(e) => (Some(format!("{}", &parse_args(&e).join(" "))), None),
+                Command::Echo(e) => (Some(format!("{}\n", &parse_args(&e).join(" "))), None),
                 Command::Type(Type::Builtin(c)) => {
                     (Some(format!("{} is a shell builtin", c)), None)
                 }
@@ -242,29 +242,32 @@ fn main() -> Result<()> {
                         Ok(_) => (None, None),
                         Err(_) => (
                             None,
-                            Some(format!("cd: {}: No such file or directory", path.display())),
+                            Some(format!(
+                                "cd: {}: No such file or directory\n",
+                                path.display()
+                            )),
                         ),
                     }
                 }
                 Command::Local(o, e) => (Some(o.0), Some(e.0)),
             };
 
-            if let Some(mut f) = sout {
-                if let Some(content) = out {
-                    writeln!(f, "{}", content)?;
-                }
-            } else {
-                if let Some(content) = out {
-                    println!("{}", content);
+            if let Some(content) = out {
+                if !content.is_empty() {
+                    if let Some(mut f) = sout {
+                        write!(f, "{}", content)?;
+                    } else {
+                        print!("{}", content);
+                    }
                 }
             }
-            if let Some(mut f) = serr {
-                if let Some(content) = err {
-                    writeln!(f, "{}", content)?;
-                }
-            } else {
-                if let Some(content) = err {
-                    println!("{}", content);
+            if let Some(content) = err {
+                if !content.is_empty() {
+                    if let Some(mut f) = serr {
+                        write!(f, "{}", content)?;
+                    } else {
+                        print!("{}", content);
+                    }
                 }
             }
         } else {
