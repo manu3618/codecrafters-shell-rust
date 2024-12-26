@@ -159,8 +159,8 @@ fn extract_command(s: &str) -> Result<(Command, Option<File>, Option<File>), Com
         "pwd" => Command::Pwd,
         "cd" => Command::Cd(args),
         cmd => {
-            if let Some(p) = pathenv.find(cmd) {
-                let mut c = process::Command::new(p);
+            if let Some(_binary) = pathenv.find(cmd) {
+                let mut c = process::Command::new(cmd);
                 for arg in parts {
                     c.arg(arg);
                 }
