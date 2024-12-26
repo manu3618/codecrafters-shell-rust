@@ -217,11 +217,11 @@ fn main() -> Result<()> {
                 Command::Exit(_a) => return Ok(()),
                 Command::Echo(e) => (Some(format!("{}\n", &e)), None),
                 Command::Type(Type::Builtin(c)) => {
-                    (Some(format!("{} is a shell builtin", c)), None)
+                    (Some(format!("{} is a shell builtin\n", c)), None)
                 }
                 Command::Type(Type::Local(p)) => (
                     Some(format!(
-                        "{} is {}",
+                        "{} is {}\n",
                         p.file_name().unwrap().to_str().unwrap(),
                         p.to_str().unwrap()
                     )),
